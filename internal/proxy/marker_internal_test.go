@@ -568,3 +568,16 @@ func TestSubscriptionTargetMarker_SwitchedModelIsWordedAsRescue(t *testing.T) {
 	assert.Empty(t, subscriptionTargetMarker(ctx, optOut, res, picked, target, "kept"),
 		"the per-request opt-out still hides a genuine switch badge")
 }
+
+func TestSubscriptionTargetMarker_RotationBackToPickRestoresRoutedMarker(t *testing.T) {
+	ctx := context.Background()
+	picked := router.Decision{Model: "gpt-6-luna", Provider: "openai"}
+	sibling := router.Decision{Model: "gpt-6.1-sol", Provider: "openai"}
+	res := turnLoopResult{Decision: picked, CallerModelPassthrough: true}
+	pickedMarker := routingMarkerFor(res)
+
+	// Always compared against the original pick: after the sibling failed,
+	// rotation returning to the pick is not a rescue and must not be badged.
+	assert.Contains(t, subscriptionTargetMarker(ctx, http.Header{}, res, picked, sibling, pickedMarker), markerReasonSibling)
+	assert.Empty(t, subscriptionTargetMarker(ctx, http.Header{}, res, picked, picked, pickedMarker))
+}

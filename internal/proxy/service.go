@@ -4779,6 +4779,9 @@ func (s *Service) ProxyMessages(ctx context.Context, body []byte, w http.Respons
 	// decision.Model names the rescuer rather than what failed.
 	primaryModel := decision.Model
 	primaryDecision := decision
+	// The routed badge, kept for subscription-state targets that land back on
+	// the original pick after a sibling failed.
+	pickedMarker := marker
 	var winnerIdx int
 	var subscriptionStateWinnerProvider string
 	subscriptionPoolFailure := false
@@ -4822,7 +4825,7 @@ func (s *Service) ProxyMessages(ctx context.Context, body []byte, w http.Respons
 				alternativeOpts.ModelSwitched = true
 				alternativeEffort := s.resolveEffort(ctx, target, alternativeOpts.Capabilities, routeRes.EscalateEffort)
 				alternativeEffort.apply(&alternativeOpts)
-				alternativeMarker := subscriptionTargetMarker(ctx, r.Header, routeRes, decision, target, marker)
+				alternativeMarker := subscriptionTargetMarker(ctx, r.Header, routeRes, primaryDecision, target, pickedMarker)
 				return buildAttempt(target, alternativeOpts, alternativeMarker)
 			},
 			onAlternative: func(target router.Decision) {
@@ -4831,7 +4834,7 @@ func (s *Service) ProxyMessages(ctx context.Context, body []byte, w http.Respons
 				marker = suppressMarkerIfRequested(ctx, r.Header, modelSelectionMarkerForRequest(ctx, routeRes, siblingRoutingMarkerFor(routeRes, target.Model), target.Model, markerReasonSibling))
 			},
 			onSubscriptionStateTarget: func(target router.Decision, targetBindings []catalog.ProviderBinding) {
-				marker = subscriptionTargetMarker(ctx, r.Header, routeRes, decision, target, marker)
+				marker = subscriptionTargetMarker(ctx, r.Header, routeRes, primaryDecision, target, pickedMarker)
 				decision = target
 				bindings = targetBindings
 			},
@@ -7917,6 +7920,9 @@ func (s *Service) ProxyOpenAIChatCompletion(ctx context.Context, body []byte, w 
 	primaryProvider := decision.Provider
 	primaryModel := decision.Model
 	primaryDecision := decision
+	// The routed badge, kept for subscription-state targets that land back on
+	// the original pick after a sibling failed.
+	pickedMarker := marker
 	surfacePurpose := inference.PurposeOpenAIChatCompletions
 	if isResponsesWriter {
 		surfacePurpose = inference.PurposeOpenAIResponses
@@ -7965,7 +7971,7 @@ func (s *Service) ProxyOpenAIChatCompletion(ctx context.Context, body []byte, w 
 			alternativeOpts.ModelSwitched = true
 			alternativeEffort := s.resolveEffort(ctx, target, alternativeOpts.Capabilities, routeRes.EscalateEffort)
 			alternativeEffort.apply(&alternativeOpts)
-			alternativeMarker := subscriptionTargetMarker(ctx, r.Header, routeRes, decision, target, marker)
+			alternativeMarker := subscriptionTargetMarker(ctx, r.Header, routeRes, primaryDecision, target, pickedMarker)
 			return buildAttempt(target, alternativeOpts, alternativeMarker)
 		},
 		onAlternative: func(target router.Decision) {
@@ -7974,7 +7980,7 @@ func (s *Service) ProxyOpenAIChatCompletion(ctx context.Context, body []byte, w 
 			marker = suppressMarkerIfRequested(ctx, r.Header, modelSelectionMarkerForRequest(ctx, routeRes, siblingRoutingMarkerFor(routeRes, target.Model), target.Model, markerReasonSibling))
 		},
 		onSubscriptionStateTarget: func(target router.Decision, targetBindings []catalog.ProviderBinding) {
-			marker = subscriptionTargetMarker(ctx, r.Header, routeRes, decision, target, marker)
+			marker = subscriptionTargetMarker(ctx, r.Header, routeRes, primaryDecision, target, pickedMarker)
 			decision = target
 			bindings = targetBindings
 		},
